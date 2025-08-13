@@ -5,20 +5,103 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JS Raycasting Engine</title>
     <style>
-        body { display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #333; color: #fff; margin: 0; font-family: sans-serif; overflow: hidden; }
-        canvas { background-color: black; border: 2px solid #555; }
-        h1 { margin-top: 20px; margin-bottom: 10px; }
-        .button-container { position: absolute; top: 15px; left: 15px; z-index: 10; }
-        .ui-button { padding: 8px 15px; font-size: 0.9rem; font-weight: bold; color: #fff; background-color: rgba(50, 50, 50, 0.7); border: 2px solid #888; border-radius: 8px; cursor: pointer; transition: background-color 0.3s; margin-right: 10px; }
-        .ui-button:hover { background-color: rgba(80, 80, 80, 0.9); }
-        .modal { justify-content: center; align-items: center; display: none; position: fixed; z-index: 20; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
-        .modal.active { display: flex; }
-        .modal-content { background-color: #2d2d2d; padding: 25px; border: 1px solid #888; width: 90%; max-width: 450px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
-        .close-button { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .close-button:hover, .close-button:focus { color: #fff; }
-        .setting-item { margin-bottom: 20px; }
-        .setting-item label { display: block; margin-bottom: 8px; font-size: 1.1rem; }
-        .setting-item input[type="range"] { width: 100%; cursor: pointer; }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: #333;
+            color: #fff;
+            margin: 0;
+            font-family: sans-serif;
+            overflow: hidden; /* 防止页面滚动 */
+        }
+        canvas {
+            background-color: black;
+            border: 2px solid #555;
+        }
+        h1 {
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .button-container {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+        }
+        .ui-button {
+            padding: 8px 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: rgba(50, 50, 50, 0.7);
+            border: 2px solid #888;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 10px;
+        }
+        .ui-button:hover {
+            background-color: rgba(80, 80, 80, 0.9);
+        }
+
+        /* --- 设置模态窗口样式 --- */
+        .modal {
+            display: none; /* 默认隐藏 */
+            position: fixed; /* 固定定位，覆盖整个屏幕 */
+            z-index: 20;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.6); /* 半透明黑色背景 */
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+            justify-content: center;
+            align-items: center;
+            display: none; /* 修正：初始时隐藏 */
+        }
+        .modal.active {
+            display: flex; /* 激活时显示 */
+        }
+        .modal-content {
+            background-color: #2d2d2d;
+            padding: 25px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 450px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        .close-button {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close-button:hover,
+        .close-button:focus {
+            color: #fff;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .setting-item {
+            margin-bottom: 20px;
+        }
+        .setting-item label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        .setting-item input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -35,14 +118,17 @@
             <span id="closeModalButton" class="close-button">&times;</span>
             <h2>游戏设置</h2>
             <hr style="border-color: #555; margin-bottom: 25px;">
+            
             <div class="setting-item">
                 <label for="speedSlider">移动速度: <span id="speedValue"></span></label>
                 <input type="range" id="speedSlider" min="0.01" max="0.2" step="0.001">
             </div>
+            
             <div class="setting-item">
                 <label for="fovSlider">视野 (FOV): <span id="fovValue"></span>°</label>
                 <input type="range" id="fovSlider" min="30" max="120" step="1">
             </div>
+
             <div class="setting-item">
                 <label for="angleSlider">旋转速度: <span id="angleValue"></span></label>
                 <input type="range" id="angleSlider" min="0.01" max="0.1" step="0.001">
@@ -51,69 +137,96 @@
     </div>
 
     <script src="game.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            // 检查 gameState 是否存在，如果不存在，说明 game.js 加载失败
-            if (!window.gameState) {
-                alert("错误：游戏状态(gameState)加载失败！请检查 game.js 文件是否正确。");
-                return;
-            }
 
+    <script>
+        // 使用 DOMContentLoaded 确保所有HTML元素都加载完毕后再执行脚本
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 获取所有需要操作的UI元素 ---
+            const backButton = document.getElementById('backButton');
             const settingsButton = document.getElementById('settingsButton');
             const settingsModal = document.getElementById('settingsModal');
             const closeModalButton = document.getElementById('closeModalButton');
+
             const speedSlider = document.getElementById('speedSlider');
             const fovSlider = document.getElementById('fovSlider');
             const angleSlider = document.getElementById('angleSlider');
+
             const speedValue = document.getElementById('speedValue');
             const fovValue = document.getElementById('fovValue');
             const angleValue = document.getElementById('angleValue');
 
-            function openSettings() { settingsModal.classList.add('active'); }
-            function closeSettings() { settingsModal.classList.remove('active'); }
+            // ---- 模态窗口的打开和关闭 ----
+            function openSettings() {
+                settingsModal.classList.add('active');
+            }
+
+            function closeSettings() {
+                settingsModal.classList.remove('active');
+            }
 
             settingsButton.addEventListener('click', openSettings);
             closeModalButton.addEventListener('click', closeSettings);
+            // 点击模态框外部的半透明背景时也关闭窗口
             settingsModal.addEventListener('click', (event) => {
-                if (event.target === settingsModal) closeSettings();
+                if (event.target === settingsModal) {
+                    closeSettings();
+                }
             });
 
-            // **【核心修改】**: 所有操作都针对 window.gameState 对象
+            // ---- 核心逻辑：监听滑块的 'input' 事件 ----
+            // 'input' 事件会在滑块被拖动的整个过程中持续触发
+
             speedSlider.addEventListener('input', (event) => {
+                // 1. 从滑块获取新值
                 const newSpeed = parseFloat(event.target.value);
-                window.gameState.speed = newSpeed; // 修改全局状态
+                // 2. 更新 game.js 中的全局变量 'speed'
+                speed = newSpeed;
+                // 3. 更新界面上显示的数值（保留3位小数）
                 speedValue.textContent = newSpeed.toFixed(3);
             });
 
             fovSlider.addEventListener('input', (event) => {
+                // 1. 从滑块获取新的角度值
                 const fovDegrees = parseFloat(event.target.value);
-                window.gameState.fov = fovDegrees * (Math.PI / 180); // 修改全局状态
+                // 2. 将角度转换为弧度，并更新 game.js 中的全局变量 'fov'
+                fov = fovDegrees * (Math.PI / 180);
+                // 3. 更新界面上显示的数值
                 fovValue.textContent = Math.round(fovDegrees);
             });
 
             angleSlider.addEventListener('input', (event) => {
+                // 1. 从滑块获取新值
                 const newAngle = parseFloat(event.target.value);
-                window.gameState.angle = newAngle; // 修改全局状态
+                // 2. 更新 game.js 中的全局变量 'angle'
+                angle = newAngle;
+                // 3. 更新界面上显示的数值（保留3位小数）
                 angleValue.textContent = newAngle.toFixed(3);
             });
             
-            document.getElementById('backButton').addEventListener('click', () => {
-                window.location.href = '../../index.html';
+            // --- 返回按钮逻辑 ---
+            backButton.addEventListener('click', function() {
+                // 这里的路径可能需要根据您的项目结构调整
+                window.location.href = '../../index.html'; 
             });
 
+            // --- 初始化函数：让滑块和数值在打开时显示正确的初始值 ---
             function initializeSettings() {
-                // 从全局状态读取初始值
-                speedSlider.value = window.gameState.speed;
-                speedValue.textContent = window.gameState.speed.toFixed(3);
+                // 设置 Speed 滑块和显示值
+                speedSlider.value = speed;
+                speedValue.textContent = speed.toFixed(3);
 
-                const fovDegrees = window.gameState.fov * (180 / Math.PI);
+                // 设置 FOV 滑块和显示值 (将弧度转为角度)
+                const fovDegrees = fov * (180 / Math.PI);
                 fovSlider.value = fovDegrees;
                 fovValue.textContent = Math.round(fovDegrees);
 
-                angleSlider.value = window.gameState.angle;
-                angleValue.textContent = window.gameState.angle.toFixed(3);
+                // 设置 Angle 滑块和显示值
+                angleSlider.value = angle;
+                angleValue.textContent = angle.toFixed(3);
             }
 
+            // 页面加载后，立即执行一次初始化
             initializeSettings();
         });
     </script>

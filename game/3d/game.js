@@ -10,14 +10,18 @@ const SCREEN_HEIGHT = 600;
 canvas.width = SCREEN_WIDTH;
 canvas.height = SCREEN_HEIGHT;
 
-// **【核心修改】**: 创建一个全局的游戏状态对象
 window.gameState = {
     playerX: 1.5,
     playerY: 1.5,
     playerAngle: 0,
     fov: Math.PI / 3,
     speed: 0.05,
-    angle: 0.04
+    angle: 0.04,
+    // **【修改】**: 太阳相关的状态会由 updateSunPosition 动态计算
+    sunAngle: 0, 
+    sunY: 0,
+    sunVisible: false,
+    lightLevel: 1.0, // 光照强度 (0.0 为黑夜, 1.0 为白天)
 };
 
 // 地图
@@ -108,14 +112,75 @@ function getPaddedViewport(map, playerPos, eyeRadius) {
 // =============================================================================
 
 function drawRaycastingView() {
-    ctx.fillStyle = 'rgb(50, 50, 50)';
-    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
-    ctx.fillStyle = 'rgb(100, 100, 100)';
+    // 1. **【新功能】** 绘制天空和太阳 (在墙体之前)
+    
+    // 定义颜色
+    const sunDayColor = { r: 135, g: 206, b: 235 }; // 白天太阳附近颜色
+    const skyDayColor = { r: 0, g: 0, b: 139 };     // 白天远离太阳颜色
+    const skyNightColor = { r: 5, g: 5, b: 20 };    // 夜晚天空颜色
+
+    // 根据光照强度混合颜色
+    const sunR = skyNightColor.r + (sunDayColor.r - skyNightColor.r) * gameState.lightLevel;
+    const sunG = skyNightColor.g + (sunDayColor.g - skyNightColor.g) * gameState.lightLevel;
+    const sunB = skyNightColor.b + (sunDayColor.b - skyNightColor.b) * gameState.lightLevel;
+    const skyR = skyNightColor.r + (skyDayColor.r - skyNightColor.r) * gameState.lightLevel;
+    const skyG = skyNightColor.g + (skyDayColor.g - skyNightColor.g) * gameState.lightLevel;
+    const skyB = skyNightColor.b + (skyDayColor.b - skyNightColor.b) * gameState.lightLevel;
+
+    // 绘制天空渐变
+    for (let i = 0; i < SCREEN_WIDTH; i++) {
+        const rayAngle = (gameState.playerAngle - gameState.fov / 2) + (i / SCREEN_WIDTH) * gameState.fov;
+        
+        let angleDiff = Math.abs(gameState.sunAngle - rayAngle);
+        if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+        const sunProximity = 1 - (angleDiff / Math.PI);
+
+        const r = skyR + (sunR - skyR) * sunProximity;
+        const g = skyG + (sunG - skyG) * sunProximity;
+        const b = skyB + (sunB - skyB) * sunProximity;
+
+        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, SCREEN_HEIGHT / 2);
+        ctx.stroke();
+    }
+    
+    // 如果太阳可见，绘制它
+    if (gameState.sunVisible) {
+        let sunAngleRelativeToPlayer = gameState.sunAngle - gameState.playerAngle;
+        if (sunAngleRelativeToPlayer < -Math.PI) sunAngleRelativeToPlayer += 2 * Math.PI;
+        if (sunAngleRelativeToPlayer > Math.PI) sunAngleRelativeToPlayer -= 2 * Math.PI;
+
+        if (Math.abs(sunAngleRelativeToPlayer) < gameState.fov / 2) {
+            const sunScreenX = (sunAngleRelativeToPlayer / (gameState.fov / 2)) * (SCREEN_WIDTH / 2) + (SCREEN_WIDTH / 2);
+            const sunRadius = 20;
+
+            // 绘制太阳外发光
+            const glow = ctx.createRadialGradient(sunScreenX, gameState.sunY, sunRadius * 0.5, sunScreenX, gameState.sunY, sunRadius * 1.5);
+            glow.addColorStop(0, 'rgba(255, 255, 180, 0.8)');
+            glow.addColorStop(1, 'rgba(255, 255, 180, 0)');
+            ctx.fillStyle = glow;
+            ctx.fillRect(sunScreenX - sunRadius * 2, gameState.sunY - sunRadius * 2, sunRadius * 4, sunRadius * 4);
+            
+            ctx.fillStyle = 'rgba(255, 255, 224, 1)'; // 亮黄色
+            ctx.beginPath();
+            ctx.arc(sunScreenX, gameState.sunY, sunRadius, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+    }
+
+
+    // 2. 绘制地面
+    const groundNightColor = 30;
+    const groundDayColor = 100;
+    const groundColor = groundNightColor + (groundDayColor - groundNightColor) * gameState.lightLevel;
+    ctx.fillStyle = `rgb(${groundColor}, ${groundColor}, ${groundColor})`;
     ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
 
+    // 3. 绘制墙体
     for (let i = 0; i < SCREEN_WIDTH; i++) {
-        // **【修改】** 使用 gameState
-        const rayAngle = (window.gameState.playerAngle - window.gameState.fov / 2) + (i / SCREEN_WIDTH) * window.gameState.fov;
+        const rayAngle = (gameState.playerAngle - gameState.fov / 2) + (i / SCREEN_WIDTH) * gameState.fov;
         let distanceToWall = 0;
         let hitWall = false;
         const eyeX = Math.cos(rayAngle);
@@ -123,9 +188,8 @@ function drawRaycastingView() {
 
         while (!hitWall && distanceToWall < 16) {
             distanceToWall += 0.1;
-            // **【修改】** 使用 gameState
-            const testX = Math.floor(window.gameState.playerX + eyeX * distanceToWall);
-            const testY = Math.floor(window.gameState.playerY + eyeY * distanceToWall);
+            const testX = Math.floor(gameState.playerX + eyeX * distanceToWall);
+            const testY = Math.floor(gameState.playerY + eyeY * distanceToWall);
 
             if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) {
                 hitWall = true;
@@ -134,14 +198,16 @@ function drawRaycastingView() {
                 hitWall = true;
             }
         }
-        // **【修改】** 使用 gameState
-        const fisheyeCorrection = Math.cos(rayAngle - window.gameState.playerAngle);
+        
+        const fisheyeCorrection = Math.cos(rayAngle - gameState.playerAngle);
         distanceToWall *= fisheyeCorrection;
 
         const lineHeight = Math.min(SCREEN_HEIGHT, SCREEN_HEIGHT / distanceToWall);
         const drawStart = SCREEN_HEIGHT / 2 - lineHeight / 2;
         
-        const shade = Math.max(0, Math.min(255, 255 * (1 - distanceToWall / 10)));
+        // **【修改】**: 墙体亮度受光照强度影响
+        const wallMaxShade = 255 * (1 - distanceToWall / 10);
+        const shade = Math.max(0, Math.min(255, wallMaxShade * gameState.lightLevel));
         const wallColor = `rgb(${shade}, ${shade}, ${shade})`;
         
         ctx.strokeStyle = wallColor;
@@ -151,6 +217,7 @@ function drawRaycastingView() {
         ctx.stroke();
     }
 }
+
 
 function drawMinimap(viewport, minimapPos, minimapSizePx, playerFloatPos, trailPoints, playerAngle) {
     const { x: minimapX, y: minimapY } = minimapPos;
@@ -215,71 +282,115 @@ function drawMinimap(viewport, minimapPos, minimapSizePx, playerFloatPos, trailP
 //  游戏主循环与逻辑更新 (使用 gameState)
 // =============================================================================
 
+// **【新功能】** 根据真实时间计算太阳位置和光照
+function updateSunPosition() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    // 一天总共有 24 * 60 = 1440 分钟
+    const totalMinutes = hours * 60 + minutes;
+    const dayProgress = totalMinutes / 1440; // 当天时间进度 (0.0 - 1.0)
+    
+    // 定义日出(6:00)和日落(18:00)的时间点
+    const sunriseTime = 6 / 24;  // 0.25
+    const sunsetTime = 18 / 24; // 0.75
+    const dayDuration = sunsetTime - sunriseTime;
+
+    // 判断太阳是否可见
+    if (dayProgress > sunriseTime && dayProgress < sunsetTime) {
+        gameState.sunVisible = true;
+        
+        // 计算白天过去了多少 (0.0 - 1.0)
+        const sunPathProgress = (dayProgress - sunriseTime) / dayDuration;
+        
+        // 1. 更新太阳的水平角度 (从东到西，即 PI 到 0)
+        gameState.sunAngle = Math.PI - (sunPathProgress * Math.PI);
+        
+        // 2. 更新太阳的高度 (使用sin函数模拟弧线轨迹)
+        const sunHeightFactor = Math.sin(sunPathProgress * Math.PI);
+        gameState.sunY = (SCREEN_HEIGHT / 2) - (sunHeightFactor * SCREEN_HEIGHT * 0.4);
+        
+        // 3. 更新光照强度
+        // 在日出日落时更柔和
+        const morningEveningFade = Math.sin(sunPathProgress * Math.PI);
+        gameState.lightLevel = Math.max(0.1, morningEveningFade); // 最低光照为0.1
+        
+    } else {
+        // 现在是夜晚
+        gameState.sunVisible = false;
+        gameState.lightLevel = 0.1; // 夜晚的微弱光照
+    }
+}
+
 function update() {
-    // **【修改】** 使用 gameState
-    if (keysPressed['a']) window.gameState.playerAngle -= window.gameState.angle;
-    if (keysPressed['d']) window.gameState.playerAngle += window.gameState.angle;
+    // **【新功能】** 每帧都更新太阳的位置
+    updateSunPosition();
+    
+    if (keysPressed['a']) gameState.playerAngle -= gameState.angle;
+    if (keysPressed['d']) gameState.playerAngle += gameState.angle;
     
     let moveX = 0;
     let moveY = 0;
     if (keysPressed['w']) {
-        // **【修改】** 使用 gameState
-        moveX += Math.cos(window.gameState.playerAngle) * window.gameState.speed;
-        moveY += Math.sin(window.gameState.playerAngle) * window.gameState.speed;
+        moveX += Math.cos(gameState.playerAngle) * gameState.speed;
+        moveY += Math.sin(gameState.playerAngle) * gameState.speed;
     }
     if (keysPressed['s']) {
-        // **【修改】** 使用 gameState
-        moveX -= Math.cos(window.gameState.playerAngle) * window.gameState.speed;
-        moveY -= Math.sin(window.gameState.playerAngle) * window.gameState.speed;
+        moveX -= Math.cos(gameState.playerAngle) * gameState.speed;
+        moveY -= Math.sin(gameState.playerAngle) * gameState.speed;
     }
 
-    // **【修改】** 使用 gameState
-    const nextPlayerX = window.gameState.playerX + moveX;
-    const nextPlayerY = window.gameState.playerY + moveY;
-    if (worldMap[Math.floor(window.gameState.playerY)][Math.floor(nextPlayerX)] === 0) {
-        window.gameState.playerX = nextPlayerX;
+    const nextPlayerX = gameState.playerX + moveX;
+    const nextPlayerY = gameState.playerY + moveY;
+    if (worldMap[Math.floor(gameState.playerY)][Math.floor(nextPlayerX)] === 0) {
+        gameState.playerX = nextPlayerX;
     }
-    if (worldMap[Math.floor(nextPlayerY)][Math.floor(window.gameState.playerX)] === 0) {
-        window.gameState.playerY = nextPlayerY;
+    if (worldMap[Math.floor(nextPlayerY)][Math.floor(gameState.playerX)] === 0) {
+        gameState.playerY = nextPlayerY;
     }
     
-    // **【修改】** 使用 gameState
-    const dx = window.gameState.playerX - lastTrailPos.x;
-    const dy = window.gameState.playerY - lastTrailPos.y;
+    const dx = gameState.playerX - lastTrailPos.x;
+    const dy = gameState.playerY - lastTrailPos.y;
     if (Math.sqrt(dx * dx + dy * dy) > TRAIL_RECORD_DISTANCE) {
-        playerTrail.push({ x: window.gameState.playerX, y: window.gameState.playerY });
+        playerTrail.push({ x: gameState.playerX, y: gameState.playerY });
         if (playerTrail.length > TRAIL_MAX_LENGTH) {
             playerTrail.shift();
         }
-        lastTrailPos = { x: window.gameState.playerX, y: window.gameState.playerY };
+        lastTrailPos = { x: gameState.playerX, y: gameState.playerY };
     }
 }
 
 function render() {
     ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
+    // 这一步会按正确顺序绘制所有东西：天空、太阳、地面、墙体
     drawRaycastingView();
 
-    const eyeRadius = 10;
-    // **【修改】** 使用 gameState
-    const playerPosInt = { y: Math.floor(window.gameState.playerY), x: Math.floor(window.gameState.playerX) };
-    const viewport = getPaddedViewport(worldMap, playerPosInt, eyeRadius);
     drawMinimap(
         viewport, 
         { x: 10, y: 10 }, 
         200, 
-        { y: window.gameState.playerY, x: window.gameState.playerX }, 
+        { y: gameState.playerY, x: gameState.playerX }, 
         playerTrail, 
-        window.gameState.playerAngle
+        gameState.playerAngle
     );
 }
 
+// 修正：在循环外定义 viewport，因为它在 render 中需要
+let viewport = [];
 let lastTime = 0;
 function gameLoop(timestamp) {
     const deltaTime = timestamp - lastTime;
     lastTime = timestamp;
 
     update(deltaTime);
+    
+    // 修正：在 render 之前计算小地图的 viewport
+    const eyeRadius = 10;
+    const playerPosInt = { y: Math.floor(gameState.playerY), x: Math.floor(gameState.playerX) };
+    viewport = getPaddedViewport(worldMap, playerPosInt, eyeRadius);
+
     render();
 
     requestAnimationFrame(gameLoop);
