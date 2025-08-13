@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS 光线追踪引擎</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="button-container">
+        <button id="backButton" class="ui-button">返回</button>
+        <button id="settingsButton" class="ui-button">⚙️ 设置</button>
+    </div>
+
+    <h1>光线追踪演示</h1>
+
+    <div id="renderer-container">
+        <canvas id="raytracer-canvas" width="800" height="600"></canvas>
+        <div id="status-overlay">
+            <span id="samples-count">Samples: 0</span><br>
+            <span id="render-time">Time: 0ms</span>
+        </div>
+    </div>
+    
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span id="closeModalButton" class="close-button">&times;</span>
+            <h2>渲染设置</h2>
+            <hr>
+            
+            <div class="setting-item">
+                <label for="fovSlider">视野 (FOV): <span id="fovValue"></span>°</label>
+                <input type="range" id="fovSlider" min="30" max="120" step="1">
+            </div>
+
+            <div class="setting-item">
+                <label for="reflectionSlider">最大反射次数: <span id="reflectionValue"></span></label>
+                <input type="range" id="reflectionSlider" min="0" max="10" step="1">
+            </div>
+            
+            <div class="setting-item">
+                <label for="speedSlider">移动速度: <span id="speedValue"></span></label>
+                <input type="range" id="speedSlider" min="0.1" max="2.0" step="0.05">
+            </div>
+
+            <div class="setting-item">
+                <label for="rotateSlider">旋转速度: <span id="rotateValue"></span></label>
+                <input type="range" id="rotateSlider" min="0.01" max="0.1" step="0.005">
+            </div>
+             <hr>
+             <div class="controls-info">
+                <b>控制说明:</b>
+                <p><b>W/S/A/D</b>: 前后左右移动 | <b>空格/Shift</b>: 上升/下降 | <b>方向键</b>: 旋转视角</p>
+             </div>
+        </div>
+    </div>
+
+    <script src="raytracer.js"></script>
+    <script>
+        // 这个内联脚本专门处理UI交互
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 获取所有需要操作的UI元素 ---
+            const backButton = document.getElementById('backButton');
+            const settingsButton = document.getElementById('settingsButton');
+            const settingsModal = document.getElementById('settingsModal');
+            const closeModalButton = document.getElementById('closeModalButton');
+
+            const fovSlider = document.getElementById('fovSlider');
+            const reflectionSlider = document.getElementById('reflectionSlider');
+            const speedSlider = document.getElementById('speedSlider');
+            const rotateSlider = document.getElementById('rotateSlider');
+
+            const fovValue = document.getElementById('fovValue');
+            const reflectionValue = document.getElementById('reflectionValue');
+            const speedValue = document.getElementById('speedValue');
+            const rotateValue = document.getElementById('rotateValue');
+
+            // ---- 模态窗口的打开和关闭 ----
+            settingsButton.addEventListener('click', () => settingsModal.classList.add('active'));
+            closeModalButton.addEventListener('click', () => settingsModal.classList.remove('active'));
+            settingsModal.addEventListener('click', (event) => {
+                if (event.target === settingsModal) {
+                    settingsModal.classList.remove('active');
+                }
+            });
+
+            // ---- 返回按钮逻辑 ----
+            backButton.addEventListener('click', () => {
+                window.location.href = '../../index.html'; 
+            });
+
+            // ---- 核心逻辑：监听滑块事件，更新raytracer.js中的变量 ----
+            function setupSlider(slider, valueLabel, setter, toFixed = 0) {
+                // 初始化显示
+                valueLabel.textContent = parseFloat(slider.value).toFixed(toFixed);
+                // 监听事件
+                slider.addEventListener('input', (event) => {
+                    const newValue = parseFloat(event.target.value);
+                    setter(newValue); // 调用setter函数更新核心变量
+                    valueLabel.textContent = newValue.toFixed(toFixed);
+                });
+            }
+
+            // 初始化所有滑块
+            // 注意：这里的 setFov, setMaxReflections 等函数是在 raytracer.js 中定义的
+            // 这是为了让UI脚本和渲染引擎核心逻辑解耦
+            if (window.engine) {
+                // FOV
+                fovSlider.value = window.engine.getFov();
+                setupSlider(fovSlider, fovValue, window.engine.setFov, 0);
+                
+                // 反射次数
+                reflectionSlider.value = window.engine.getMaxReflections();
+                setupSlider(reflectionSlider, reflectionValue, window.engine.setMaxReflections, 0);
+
+                // 移动速度
+                speedSlider.value = window.engine.getSpeed();
+                setupSlider(speedSlider, speedValue, window.engine.setSpeed, 2);
+
+                // 旋转速度
+                rotateSlider.value = window.engine.getRotateSpeed();
+                setupSlider(rotateSlider, rotateValue, window.engine.setRotateSpeed, 3);
+            }
+        });
+    </script>
+</body>
+</html>

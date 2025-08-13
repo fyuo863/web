@@ -10,6 +10,12 @@
         .welcome-container {
             text-align: center;
             margin-top: 10vh;
+            
+            /* --- 新增的样式 --- */
+            display: flex;
+            flex-direction: column; /* 让子元素垂直排列 */
+            align-items: center;   /* 水平居中对齐 */
+            gap: 20px;             /* 在按钮之间添加间距 */
         }
         .game-title {
             font-size: 3rem;
@@ -25,6 +31,7 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.3s, transform 0.1s;
+            width: 200px; /* 可以给按钮一个固定宽度，让它们看起来更整齐 */
         }
         .start-button:hover {
             background-color: #0099ff;
@@ -36,20 +43,17 @@
 </head>
 <body>
     <div class="welcome-container">
-        <h1 class="game-title">3D迷宫游戏</h1>
-        <button id="startButton" class="start-button">开始游戏</button>
+        <h1 class="game-title">主页</h1>
+        <button id="Button1" class="start-button">1</button>
+        <button id="Button2" class="start-button">2</button>
     </div>
 
     <script>
-        document.getElementById('startButton').addEventListener('click', function() {
-            // --- 核心修改在这里 ---
-            // 我们使用相对路径来指向目标文件。
-            // 'game/3d/index.html' 的意思是：
-            // 从当前 main.html 所在的位置开始，
-            // 1. 进入名为 'game' 的文件夹
-            // 2. 再进入名为 '3d' 的文件夹
-            // 3. 最后找到 'index.html' 文件
+        document.getElementById('Button1').addEventListener('click', function() {
             window.location.href = 'game/3d/index.html';
+        });
+        document.getElementById('Button2').addEventListener('click', function() {
+            window.location.href = 'game/box/index.html';
         });
     </script>
 </body>
