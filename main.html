@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏启动器</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 这里是只针对这个欢迎页面的样式 */
+        .welcome-container {
+            text-align: center;
+            margin-top: 10vh;
+        }
+        .game-title {
+            font-size: 3rem;
+            color: #00aaff;
+            text-shadow: 2px 2px 5px #000;
+        }
+        .start-button {
+            padding: 15px 30px;
+            font-size: 1.5rem;
+            color: #fff;
+            background-color: #0077cc;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s;
+        }
+        .start-button:hover {
+            background-color: #0099ff;
+        }
+        .start-button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-container">
+        <h1 class="game-title">3D迷宫游戏</h1>
+        <button id="startButton" class="start-button">开始游戏</button>
+    </div>
+
+    <script>
+        document.getElementById('startButton').addEventListener('click', function() {
+            // --- 核心修改在这里 ---
+            // 我们使用相对路径来指向目标文件。
+            // 'game/3d/index.html' 的意思是：
+            // 从当前 main.html 所在的位置开始，
+            // 1. 进入名为 'game' 的文件夹
+            // 2. 再进入名为 '3d' 的文件夹
+            // 3. 最后找到 'index.html' 文件
+            window.location.href = 'game/3d/index.html';
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Raycasting Engine</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* 新增的返回按钮样式 */
+        .back-button {
+            position: absolute; /* 绝对定位，以便放置在屏幕任意位置 */
+            top: 20px;
+            left: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #fff;
+            background-color: rgba(50, 50, 50, 0.7); /* 半透明背景 */
+            border: 2px solid #888;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 10; /* 确保按钮在 canvas 之上 */
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: rgba(80, 80, 80, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <button id="backButton" class="back-button">← 返回</button>
+    
+    <h1>JavaScript Raycasting Engine</h1>
+    <canvas id="gameCanvas"></canvas>
+    <script src="game.js"></script>
+    <script>
+        // 获取返回按钮元素
+        const backButton = document.getElementById('backButton');
+
+        // 为按钮添加点击事件
+        backButton.addEventListener('click', function() {
+            // 点击后，导航回项目根目录的 main.html
+            // '../../' 的意思是“返回上两级目录”，正好回到 WEB/ 根目录
+            window.location.href = '../../main.html';
+        });
+    </script>
+</body>
+</html>
