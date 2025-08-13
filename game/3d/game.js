@@ -1,5 +1,5 @@
 // =============================================================================
-//  游戏设置与状态变量 (对应 Python 中的全局变量)
+//  游戏设置与状态变量
 // =============================================================================
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -10,12 +10,15 @@ const SCREEN_HEIGHT = 600;
 canvas.width = SCREEN_WIDTH;
 canvas.height = SCREEN_HEIGHT;
 
-// 玩家状态
-let playerX = 1.5;
-let playerY = 1.5;
-let playerAngle = 0;
-const fov = Math.PI / 3;
-const speed = 0.05;
+// **【核心修改】**: 创建一个全局的游戏状态对象
+window.gameState = {
+    playerX: 1.5,
+    playerY: 1.5,
+    playerAngle: 0,
+    fov: Math.PI / 3,
+    speed: 0.05,
+    angle: 0.04
+};
 
 // 地图
 const MAP_SIZE = 101;
@@ -23,8 +26,8 @@ let worldMap = [];
 
 // 小地图和轨迹
 const TRAIL_MAX_LENGTH = 200;
-const playerTrail = []; // 用普通数组模拟 deque
-let lastTrailPos = { x: playerX, y: playerY };
+const playerTrail = [];
+let lastTrailPos = { x: window.gameState.playerX, y: window.gameState.playerY };
 const TRAIL_RECORD_DISTANCE = 0.5;
 
 // 输入状态
@@ -32,7 +35,7 @@ const keysPressed = {};
 
 
 // =============================================================================
-//  迷宫生成与工具函数 (对应 Python 中的函数)
+//  迷宫生成与工具函数 (这部分无需修改)
 // =============================================================================
 
 function generateMaze(width, height) {
@@ -55,7 +58,6 @@ function generateMaze(width, height) {
     while (stack.length > 0) {
         const [currentX, currentY] = stack[stack.length - 1];
         const neighbors = [];
-        // N, S, W, E
         const directions = [[0, -1, 'N'], [0, 1, 'S'], [-1, 0, 'W'], [1, 0, 'E']];
         for (const [dx, dy, dir] of directions) {
             const nx = currentX + dx;
@@ -102,17 +104,18 @@ function getPaddedViewport(map, playerPos, eyeRadius) {
 
 
 // =============================================================================
-//  绘图函数
+//  绘图函数 (使用 gameState)
 // =============================================================================
 
 function drawRaycastingView() {
     ctx.fillStyle = 'rgb(50, 50, 50)';
-    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2); // 天花板
+    ctx.fillRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
     ctx.fillStyle = 'rgb(100, 100, 100)';
-    ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2); // 地板
+    ctx.fillRect(0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
 
     for (let i = 0; i < SCREEN_WIDTH; i++) {
-        const rayAngle = (playerAngle - fov / 2) + (i / SCREEN_WIDTH) * fov;
+        // **【修改】** 使用 gameState
+        const rayAngle = (window.gameState.playerAngle - window.gameState.fov / 2) + (i / SCREEN_WIDTH) * window.gameState.fov;
         let distanceToWall = 0;
         let hitWall = false;
         const eyeX = Math.cos(rayAngle);
@@ -120,8 +123,9 @@ function drawRaycastingView() {
 
         while (!hitWall && distanceToWall < 16) {
             distanceToWall += 0.1;
-            const testX = Math.floor(playerX + eyeX * distanceToWall);
-            const testY = Math.floor(playerY + eyeY * distanceToWall);
+            // **【修改】** 使用 gameState
+            const testX = Math.floor(window.gameState.playerX + eyeX * distanceToWall);
+            const testY = Math.floor(window.gameState.playerY + eyeY * distanceToWall);
 
             if (testX < 0 || testX >= MAP_SIZE || testY < 0 || testY >= MAP_SIZE) {
                 hitWall = true;
@@ -130,8 +134,8 @@ function drawRaycastingView() {
                 hitWall = true;
             }
         }
-
-        const fisheyeCorrection = Math.cos(rayAngle - playerAngle);
+        // **【修改】** 使用 gameState
+        const fisheyeCorrection = Math.cos(rayAngle - window.gameState.playerAngle);
         distanceToWall *= fisheyeCorrection;
 
         const lineHeight = Math.min(SCREEN_HEIGHT, SCREEN_HEIGHT / distanceToWall);
@@ -161,13 +165,11 @@ function drawMinimap(viewport, minimapPos, minimapSizePx, playerFloatPos, trailP
     const offsetX = (playerFloatX - Math.floor(playerFloatX)) * blockSize;
     const offsetY = (playerFloatY - Math.floor(playerFloatY)) * blockSize;
 
-    // 剪裁区域
     ctx.save();
     ctx.beginPath();
     ctx.rect(minimapX, minimapY, minimapSizePx, minimapSizePx);
     ctx.clip();
 
-    // 绘制地图
     for (let y = 0; y < viewportHeight; y++) {
         for (let x = 0; x < viewportWidth; x++) {
             const rectX = centerScreenX - offsetX + (x - centerTileX) * blockSize;
@@ -177,7 +179,6 @@ function drawMinimap(viewport, minimapPos, minimapSizePx, playerFloatPos, trailP
         }
     }
 
-    // 绘制轨迹
     ctx.fillStyle = 'rgb(0,255,0)';
     for (const point of trailPoints) {
         const relativeTileX = point.x - Math.floor(playerFloatX) + centerTileX;
@@ -188,9 +189,8 @@ function drawMinimap(viewport, minimapPos, minimapSizePx, playerFloatPos, trailP
         ctx.arc(trailScreenX, trailScreenY, 2, 0, 2 * Math.PI);
         ctx.fill();
     }
-    ctx.restore(); // 取消剪裁
+    ctx.restore();
 
-    // 绘制边框和玩家
     ctx.strokeStyle = 'rgb(50,50,50)';
     ctx.strokeRect(minimapX, minimapY, minimapSizePx, minimapSizePx);
     
@@ -212,69 +212,68 @@ function drawMinimap(viewport, minimapPos, minimapSizePx, playerFloatPos, trailP
 
 
 // =============================================================================
-//  游戏主循环与逻辑更新
+//  游戏主循环与逻辑更新 (使用 gameState)
 // =============================================================================
 
 function update() {
-    // 玩家移动
-    if (keysPressed['a']) playerAngle -= 0.04;
-    if (keysPressed['d']) playerAngle += 0.04;
+    // **【修改】** 使用 gameState
+    if (keysPressed['a']) window.gameState.playerAngle -= window.gameState.angle;
+    if (keysPressed['d']) window.gameState.playerAngle += window.gameState.angle;
     
     let moveX = 0;
     let moveY = 0;
     if (keysPressed['w']) {
-        moveX += Math.cos(playerAngle) * speed;
-        moveY += Math.sin(playerAngle) * speed;
+        // **【修改】** 使用 gameState
+        moveX += Math.cos(window.gameState.playerAngle) * window.gameState.speed;
+        moveY += Math.sin(window.gameState.playerAngle) * window.gameState.speed;
     }
     if (keysPressed['s']) {
-        moveX -= Math.cos(playerAngle) * speed;
-        moveY -= Math.sin(playerAngle) * speed;
+        // **【修改】** 使用 gameState
+        moveX -= Math.cos(window.gameState.playerAngle) * window.gameState.speed;
+        moveY -= Math.sin(window.gameState.playerAngle) * window.gameState.speed;
     }
 
-    // 碰撞检测
-    const nextPlayerX = playerX + moveX;
-    const nextPlayerY = playerY + moveY;
-    if (worldMap[Math.floor(playerY)][Math.floor(nextPlayerX)] === 0) {
-        playerX = nextPlayerX;
+    // **【修改】** 使用 gameState
+    const nextPlayerX = window.gameState.playerX + moveX;
+    const nextPlayerY = window.gameState.playerY + moveY;
+    if (worldMap[Math.floor(window.gameState.playerY)][Math.floor(nextPlayerX)] === 0) {
+        window.gameState.playerX = nextPlayerX;
     }
-    if (worldMap[Math.floor(nextPlayerY)][Math.floor(playerX)] === 0) {
-        playerY = nextPlayerY;
+    if (worldMap[Math.floor(nextPlayerY)][Math.floor(window.gameState.playerX)] === 0) {
+        window.gameState.playerY = nextPlayerY;
     }
     
-    // 更新轨迹
-    const dx = playerX - lastTrailPos.x;
-    const dy = playerY - lastTrailPos.y;
+    // **【修改】** 使用 gameState
+    const dx = window.gameState.playerX - lastTrailPos.x;
+    const dy = window.gameState.playerY - lastTrailPos.y;
     if (Math.sqrt(dx * dx + dy * dy) > TRAIL_RECORD_DISTANCE) {
-        playerTrail.push({ x: playerX, y: playerY });
+        playerTrail.push({ x: window.gameState.playerX, y: window.gameState.playerY });
         if (playerTrail.length > TRAIL_MAX_LENGTH) {
-            playerTrail.shift(); // 如果超出最大长度，移除最旧的点
+            playerTrail.shift();
         }
-        lastTrailPos = { x: playerX, y: playerY };
+        lastTrailPos = { x: window.gameState.playerX, y: window.gameState.playerY };
     }
 }
 
 function render() {
-    // 清空画布
     ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
-    // 绘制3D视图
     drawRaycastingView();
 
-    // 绘制小地图
     const eyeRadius = 10;
-    const playerPosInt = { y: Math.floor(playerY), x: Math.floor(playerX) };
+    // **【修改】** 使用 gameState
+    const playerPosInt = { y: Math.floor(window.gameState.playerY), x: Math.floor(window.gameState.playerX) };
     const viewport = getPaddedViewport(worldMap, playerPosInt, eyeRadius);
     drawMinimap(
         viewport, 
         { x: 10, y: 10 }, 
         200, 
-        { y: playerY, x: playerX }, 
+        { y: window.gameState.playerY, x: window.gameState.playerX }, 
         playerTrail, 
-        playerAngle
+        window.gameState.playerAngle
     );
 }
 
-// 游戏主循环
 let lastTime = 0;
 function gameLoop(timestamp) {
     const deltaTime = timestamp - lastTime;
@@ -291,7 +290,6 @@ function gameLoop(timestamp) {
 //  初始化与启动
 // =============================================================================
 
-// 监听键盘事件
 window.addEventListener('keydown', (e) => {
     keysPressed[e.key] = true;
 });
@@ -299,7 +297,6 @@ window.addEventListener('keyup', (e) => {
     keysPressed[e.key] = false;
 });
 
-// 生成迷宫并启动游戏
 console.log("正在生成迷宫...");
 worldMap = generateMaze(MAP_SIZE, MAP_SIZE);
 console.log("迷宫生成完毕，游戏开始！");

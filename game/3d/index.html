@@ -4,44 +4,117 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JS Raycasting Engine</title>
-    <link rel="stylesheet" href="style.css">
     <style>
-        /* 新增的返回按钮样式 */
-        .back-button {
-            position: absolute; /* 绝对定位，以便放置在屏幕任意位置 */
-            top: 20px;
-            left: 20px;
-            padding: 10px 20px;
-            font-size: 1rem;
-            font-weight: bold;
-            color: #fff;
-            background-color: rgba(50, 50, 50, 0.7); /* 半透明背景 */
-            border: 2px solid #888;
-            border-radius: 8px;
-            cursor: pointer;
-            z-index: 10; /* 确保按钮在 canvas 之上 */
-            transition: background-color 0.3s;
-        }
-        .back-button:hover {
-            background-color: rgba(80, 80, 80, 0.9);
-        }
+        body { display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #333; color: #fff; margin: 0; font-family: sans-serif; overflow: hidden; }
+        canvas { background-color: black; border: 2px solid #555; }
+        h1 { margin-top: 20px; margin-bottom: 10px; }
+        .button-container { position: absolute; top: 15px; left: 15px; z-index: 10; }
+        .ui-button { padding: 8px 15px; font-size: 0.9rem; font-weight: bold; color: #fff; background-color: rgba(50, 50, 50, 0.7); border: 2px solid #888; border-radius: 8px; cursor: pointer; transition: background-color 0.3s; margin-right: 10px; }
+        .ui-button:hover { background-color: rgba(80, 80, 80, 0.9); }
+        .modal { justify-content: center; align-items: center; display: none; position: fixed; z-index: 20; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); backdrop-filter: blur(5px); }
+        .modal.active { display: flex; }
+        .modal-content { background-color: #2d2d2d; padding: 25px; border: 1px solid #888; width: 90%; max-width: 450px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
+        .close-button { color: #aaa; position: absolute; top: 10px; right: 20px; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-button:hover, .close-button:focus { color: #fff; }
+        .setting-item { margin-bottom: 20px; }
+        .setting-item label { display: block; margin-bottom: 8px; font-size: 1.1rem; }
+        .setting-item input[type="range"] { width: 100%; cursor: pointer; }
     </style>
 </head>
 <body>
-    <button id="backButton" class="back-button">返回</button>
-    
+    <div class="button-container">
+        <button id="backButton" class="ui-button">返回</button>
+        <button id="settingsButton" class="ui-button">⚙️ 设置</button>
+    </div>
+
     <h1>JavaScript Raycasting Engine</h1>
     <canvas id="gameCanvas"></canvas>
+
+    <div id="settingsModal" class="modal">
+        <div class="modal-content">
+            <span id="closeModalButton" class="close-button">&times;</span>
+            <h2>游戏设置</h2>
+            <hr style="border-color: #555; margin-bottom: 25px;">
+            <div class="setting-item">
+                <label for="speedSlider">移动速度: <span id="speedValue"></span></label>
+                <input type="range" id="speedSlider" min="0.01" max="0.2" step="0.001">
+            </div>
+            <div class="setting-item">
+                <label for="fovSlider">视野 (FOV): <span id="fovValue"></span>°</label>
+                <input type="range" id="fovSlider" min="30" max="120" step="1">
+            </div>
+            <div class="setting-item">
+                <label for="angleSlider">旋转速度: <span id="angleValue"></span></label>
+                <input type="range" id="angleSlider" min="0.01" max="0.1" step="0.001">
+            </div>
+        </div>
+    </div>
+
     <script src="game.js"></script>
     <script>
-        // 获取返回按钮元素
-        const backButton = document.getElementById('backButton');
+        document.addEventListener('DOMContentLoaded', () => {
+            // 检查 gameState 是否存在，如果不存在，说明 game.js 加载失败
+            if (!window.gameState) {
+                alert("错误：游戏状态(gameState)加载失败！请检查 game.js 文件是否正确。");
+                return;
+            }
 
-        // 为按钮添加点击事件
-        backButton.addEventListener('click', function() {
-            // 点击后，导航回项目根目录的 main.html
-            // '../../' 的意思是“返回上两级目录”，正好回到 WEB/ 根目录
-            window.location.href = '../../main.html';
+            const settingsButton = document.getElementById('settingsButton');
+            const settingsModal = document.getElementById('settingsModal');
+            const closeModalButton = document.getElementById('closeModalButton');
+            const speedSlider = document.getElementById('speedSlider');
+            const fovSlider = document.getElementById('fovSlider');
+            const angleSlider = document.getElementById('angleSlider');
+            const speedValue = document.getElementById('speedValue');
+            const fovValue = document.getElementById('fovValue');
+            const angleValue = document.getElementById('angleValue');
+
+            function openSettings() { settingsModal.classList.add('active'); }
+            function closeSettings() { settingsModal.classList.remove('active'); }
+
+            settingsButton.addEventListener('click', openSettings);
+            closeModalButton.addEventListener('click', closeSettings);
+            settingsModal.addEventListener('click', (event) => {
+                if (event.target === settingsModal) closeSettings();
+            });
+
+            // **【核心修改】**: 所有操作都针对 window.gameState 对象
+            speedSlider.addEventListener('input', (event) => {
+                const newSpeed = parseFloat(event.target.value);
+                window.gameState.speed = newSpeed; // 修改全局状态
+                speedValue.textContent = newSpeed.toFixed(3);
+            });
+
+            fovSlider.addEventListener('input', (event) => {
+                const fovDegrees = parseFloat(event.target.value);
+                window.gameState.fov = fovDegrees * (Math.PI / 180); // 修改全局状态
+                fovValue.textContent = Math.round(fovDegrees);
+            });
+
+            angleSlider.addEventListener('input', (event) => {
+                const newAngle = parseFloat(event.target.value);
+                window.gameState.angle = newAngle; // 修改全局状态
+                angleValue.textContent = newAngle.toFixed(3);
+            });
+            
+            document.getElementById('backButton').addEventListener('click', () => {
+                window.location.href = '../../index.html';
+            });
+
+            function initializeSettings() {
+                // 从全局状态读取初始值
+                speedSlider.value = window.gameState.speed;
+                speedValue.textContent = window.gameState.speed.toFixed(3);
+
+                const fovDegrees = window.gameState.fov * (180 / Math.PI);
+                fovSlider.value = fovDegrees;
+                fovValue.textContent = Math.round(fovDegrees);
+
+                angleSlider.value = window.gameState.angle;
+                angleValue.textContent = window.gameState.angle.toFixed(3);
+            }
+
+            initializeSettings();
         });
     </script>
 </body>
